@@ -64,6 +64,7 @@ A deep CNN model for real-time object detection that detects 80 different classe
 
 I get model from this YOLO v3 [repository](https://github.com/mystic123/tensorflow-yolo-v3). Conversion was based on Model Optimizer Developer Guide
 [instructions](https://docs.openvinotoolkit.org/2020.3/_docs_MO_DG_prepare_model_convert_model_tf_specific_Convert_YOLO_From_Tensorflow.html)
+
 #####Build instructions:
 
   
@@ -120,6 +121,7 @@ frozen_darknet_yolov3_model.bin
 Single Stage Detector: real-time CNN for object detection that detects 80 different classes.
 
 I get original model from Tensorflow [detection model zoo](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md)
+
 #####Build instructions:
 
 ```
@@ -145,6 +147,7 @@ frozen_inference_graph.bin
 This is a real-time neural network for object instance segmentation that detects 80 different classes. Extends Faster R-CNN as each of the 300 elected ROIs go through 3 parallel branches of the network: label prediction, bounding box prediction and mask prediction.
 
 I get original model from Tensorflow [detection model zoo](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md)
+
 #####Build instructions:
 
 ```
