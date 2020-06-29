@@ -2,60 +2,10 @@
 
 This is Write-Up for "People Counter App at the Edge using OpenVINO" project for my Intel® Edge AI for IoT Developers Nanodegree Program at Udacity.
 
-## Explaining Custom Layers
-
-Custom layers are layers that are not included in the list of known layers. If the topology contains any layers that are not in the list of known layers, the Model Optimizer classifies them as custom. 
-
-In OpenVINO we can register new custom layers as extensions to the Model Optimizer. Or there are several other options specific to the Caffe, TensorFlow, MXNet, and ONIX libraries. This is described in [Custom Layers Guide](https://docs.openvinotoolkit.org/latest/_docs_HOWTO_Custom_Layers_Guide.html) on OpenVINO site
-
-Some of the potential reasons for handling custom layers are:
-
- - implement missing layers new for cutting-edge topologies
- - to implement them in last layers as regular post-processing in application
-
-
-Tutorial explains the flow and provides examples for custom layers you can find [here](https://software.intel.com/content/www/us/en/develop/articles/openvino-custom-layers-support-in-inference-engine.html)
-
-
-## Comparing Model Performance
-
-My method(s) to compare models before and after conversion to Intermediate Representations
-were...
-
-The difference between model accuracy pre- and post-conversion was...
-
-The size of the model pre- and post-conversion was...
-
-The inference time of the model pre- and post-conversion was...
-
-## Assess Model Use Cases
-
-Some of the potential use cases of the people counter app :
-
- - To precisely control the number of people inside indoors. Actual during the pandemic for stores
- - To measure people's interest in advertising screens. You can sell advertising to a client for real views.
- - It can be applied in security systems. To control a person’s presence in a specific area
- - In retail to control attention to specific products
-
-Each of these use cases will be useful, because it is an "automatic" work that may be needed, but people don’t really like it. People need to have opportunity for more creative job.
-
-## Assess Effects on End User Needs
-
-Lighting, model accuracy, and camera focal length/image size have different effects on a
-deployed edge model. To get better results, consider the following factors:
-
- - Lighting: Bad lighting condition can gives significant impact on model accuracy. In most cases you need good light to get good accuracy. Idealy test data distributions, training data distributions and end user lighting condition shoud be rather close.
- - Model Accuracy: in many cases edge models is need to run in realtime. So usually you need to find balance speed/accuracy. High accurate model can requier a lot computer power. some times is good to test different IR precision FP32 or FP16 - this directly affects performance.
- - Camera focal Length and Image Size: Models give the best results if the camera image is close to the image parameters from the data set. Image size should be the same or higher than the resolution of the internal processing. Smaller image sizes degradate image and can give worse results. Too large image size requires more processing power to reduce. Make sure to use the input image mean/scale parameters (--scale and –mean_values) with the Model Optimizer when you need pre-processing. It allows the tool to bake the pre-processing into the IR to get accelerated by the Inference Engine. 
- - Camera position: In addition, the location and viewing angle of the camera can affect performance. If it is located too different from training data cameras, for example too high - you may get poor results
-
-So main recommendatio is to test model on real user condition and real data. And re-traim model if need.
-
-
 ## Model Research
 
 
-In investigating potential people counter models, I tried and succesfuly convert for IR format each of the following three models:
+In investigating potential people counter models, I tried and successfully convert for IR format each of the following three models:
 
 
 ### Model 1 - YOLO v3
@@ -92,7 +42,7 @@ python convert_weights_pb.py --class_names coco.names --data_format NHWC --weigh
 python /opt/intel/openvino/deployment_tools/model_optimizer/mo_tf.py --input_model frozen_darknet_yolov3_model.pb --tensorflow_use_custom_operations_config /opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf/yolo_v3.json --batch 1
 	
 ```
-During .weights to a .pb convertion I get an several errors like:
+During .weights to a .pb conversion I get an several errors like:
 	
 ```
 AttributeError: module 'tensorflow.python.ops.nn' has no attribute 'leaky_relu'
@@ -166,4 +116,108 @@ Was generated .xml and .bin files:
 frozen_inference_graph.xml
 frozen_inference_graph.bin
 ```
+
+
+## Comparing Model Performance
+
+### Methods to compare before and after conversion models
+
+I find next methods to compare models before and after conversion to Intermediate Representations:
+
+1. **Direct Comparison**. - I am using this method in my tests. 
+
+	I can use same sample video to run inference using TensorFlow and get time for it. I will  use `time.time()` exactly before running TensorFlow inference line of code after to get difference. So I will able to calculate common time for whole video. Than I will compare time with OpenVINO results
+I can re-use for TensorFlow same opencv code that I use for OpenVINO to load video, get frames, preprocess, etc...
+Using `print()` during each frame execution can gives some strange results, so better to use 
+`cv2.putText` to put text directly on video
+
+2. **Using DL Workbench** - potential opportunity I still investigate. Mostly it used for tune converted models, but also it can [import](https://docs.openvinotoolkit.org/2020.3/_docs_Workbench_DG_Select_Models.html) original models. It good to know if it able to [compare](https://docs.openvinotoolkit.org/latest/_docs_Workbench_DG_Compare_Performance_between_Two_Versions_of_Models.html) original and converted models. DL Workbench is a web-based graphical environment that enables users to visualize, fine-tune, and compare performance of deep learning models on various Intel® architecture configurations. It can measure accuracy, performance and more metrics
+ 
+ 	DL Workbench supports several frameworks whether uploaded from a local folder or imported from the Open Model Zoo. Supported frameworks are: OpenVINO, Caffe, MXNet, ONNX, TensorFlow. For PyTorch DL Workbench supports only pre-trained models from Intel Open Model Zoo. DL Workbench documentation available [here](https://docs.openvinotoolkit.org/2019_R3.1/_docs_Workbench_DG_Introduction.html)
+
+
+### Difference between model accuracy pre- and post-conversion
+
+**Accuracy measurement methods** for object detection models : I find that no single definition of metrics for accuracy. Some of the metrics descriptions, such as Precision, Recall and Accuracy I found [here](https://manalelaidouni.github.io/manalelaidouni.github.io/Evaluating-Object-Detection-Models-Guide-to-Performance-Metrics.html) and [here](https://medium.com/@jonathan_hui/map-mean-average-precision-for-object-detection-45c121a31173). Most common used metrics are:
+
+**Precision** is the the probability of the predicted bounding boxes matching actual ground truth boxes, also referred to as the positive predictive value.
+
+![equation](http://latex.codecogs.com/gif.latex?Precision%3D%5Cfrac%7BTP%7D%7BTP+FP%7D) 
+
+**Recall** is the true positive rate, also referred to as sensitivity, measures the probability of ground truth objects being correctly detected. 
+
+![equation](http://latex.codecogs.com/gif.latex?Recall%3D%5Cfrac%7BTP%7D%7BTP+FN%7D) 
+
+**Accuracy** is the percentage of correctly predicted examples out of all predictions. The accuracy metric results unfortunately can be very misleading when dealing with class imbalanced data. For example where the number of instances is not the same for each classes, as It puts more weight on learning the majority classes than the minority classes. For single class object detection (like detect only "person" class) it can be ok, but if we will detect more classes it possible misleading.
+
+![equation](http://latex.codecogs.com/gif.latex?Accuracy%3D%5Cfrac%7BTP+TN%7D%7BTP+FP+TN+FN
+%7D) 
+
+where used next notation - **True Positives (TP)**, **False Negatives (FN)**, and **False Positives (FP)**. To determine how many objects were detected correctly and how many false positives were generated, we use the **Intersection over Union (IoU)** metric. The IoU score ranges from 0 to 1, the closer the two boxes, the higher the IoU score. Formally, the IoU measures the overlap between the ground truth box and the predicted box over their union.
+
+
+### Size of the model pre- and post-conversion
+
+***Size Comparation method:*** I compare file size of OpenVINO IR .bin vs TensorFlow .bp model frozen graph.
+
+Results:
+
+| Model                         | TensorFlow .bp file | OpenVINO IR .bin file |
+| ----------------------------- |:-------------------:| ---------------------:|
+| tensorflow-yolo-v3            | 237Mb               | 236Mb                 |
+| ssd-mobilenet-v2-coco         | 66.5Mb              | 64.2Mb                |
+| faster-rcnn-inception-v2-coco | 54.5MB              | 50.8Mb                |
+
+OpenVINO IR models file sizes a bit smaller, but not too much 
+
+### Inference time of the model pre- and post-conversion
+
+***Inference time Comparation method:*** I compare time taken to run inference for one image using converted OpenVINO IR model vs using original TensorFlow model.
+
+Results:
+
+| Model                         | TensorFlow  | OpenVINO  |
+| ----------------------------- |:-------------------:| ---------------------:|
+| tensorflow-yolo-v3            |                |                  |
+| ssd-mobilenet-v2-coco         |               |                 |
+| faster-rcnn-inception-v2-coco |               |                 |
+
+## Explaining Custom Layers
+
+Custom layers are layers that are not included in the list of known layers. If the topology contains any layers that are not in the list of known layers, the Model Optimizer classifies them as custom. 
+
+In OpenVINO we can register new custom layers as extensions to the Model Optimizer. Or there are several other options specific to the Caffe, TensorFlow, MXNet, and ONIX libraries. This is described in [Custom Layers Guide](https://docs.openvinotoolkit.org/latest/_docs_HOWTO_Custom_Layers_Guide.html) on OpenVINO site
+
+Some of the potential reasons for handling custom layers are:
+
+ - implement missing layers new for cutting-edge topologies
+ - to implement them in last layers as regular post-processing in application
+
+
+Tutorial explains the flow and provides examples for custom layers you can find [here](https://software.intel.com/content/www/us/en/develop/articles/openvino-custom-layers-support-in-inference-engine.html)
+
+
+## Assess Model Use Cases
+
+Some of the potential use cases of the people counter app :
+
+ - To precisely control the number of people inside indoors. Actual during the pandemic for stores
+ - To measure people's interest in advertising screens. You can sell advertising to a client for real views.
+ - It can be applied in security systems. To control a person’s presence in a specific area
+ - In retail to control attention to specific products
+
+Each of these use cases will be useful, because it is an "automatic" work that may be needed, but people don’t really like it. People need to have opportunity for more creative job.
+
+## Assess Effects on End User Needs
+
+Lighting, model accuracy, and camera focal length/image size have different effects on a
+deployed edge model. To get better results, consider the following factors:
+
+ - Lighting: Bad lighting condition can gives significant impact on model accuracy. In most cases you need good light to get good accuracy. Ideally test data distributions, training data distributions and end user lighting condition should be rather close.
+ - Model Accuracy: in many cases edge models is need to run in realtime. So usually you need to find balance speed/accuracy. High accurate model can require a lot computer power. some times is good to test different IR precision FP32 or FP16 - this directly affects performance.
+ - Camera focal Length and Image Size: Models give the best results if the camera image is close to the image parameters from the data set. Image size should be the same or higher than the resolution of the internal processing. Smaller image sizes degrade image and can give worse results. Too large image size requires more processing power to reduce. Make sure to use the input image mean/scale parameters (--scale and –mean_values) with the Model Optimizer when you need pre-processing. It allows the tool to bake the pre-processing into the IR to get accelerated by the Inference Engine. 
+ - Camera position: In addition, the location and viewing angle of the camera can affect performance. If it is located too different from training data cameras, for example too high - you may get poor results
+
+So main recommendation is to test model on real user condition and real data. And re-train model if need.
+
 
