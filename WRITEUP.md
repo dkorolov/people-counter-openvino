@@ -66,6 +66,13 @@ frozen_darknet_yolov3_model.bin
 ```
 
 
+##### Run main code:
+
+```
+python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/tensorflow-yolo-v3/frozen_darknet_yolov3_model.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.6 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+```
+
+
 ### Model 2 - ssd mobilenet v2 coco
 
 Single Stage Detector: real-time CNN for object detection that detects 80 different classes.
@@ -89,6 +96,12 @@ Was generated .xml and .bin files:
 ```
 frozen_inference_graph.xml
 frozen_inference_graph.bin
+```
+
+##### Run main code:
+
+```
+python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/ssd_mobilenet_v2_coco_2018_03_29/frozen_inference_graph.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.6 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
 ```
 
 
@@ -116,7 +129,27 @@ Was generated .xml and .bin files:
 frozen_inference_graph.xml
 frozen_inference_graph.bin
 ```
+##### Run main code:
 
+```
+python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/faster_rcnn_inception_v2_coco_2018_01_28/frozen_inference_graph.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.6 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+```
+
+### Model 4 - person-detection-retail-0013 (additional model from OpenVINO zoo)
+
+This is additional pre-trained model from OpenVINO zoo, only for comparation
+
+##### Get model from OpenVINO zoo:
+
+```
+/opt/intel/openvino/deployment_tools/tools/model_downloader# sudo ./downloader.py --name person-detection-retail-0013 --precisions FP16 -o /home/workspace
+```
+
+##### Run main code:
+
+```
+python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/faster_rcnn_inception_v2_coco_2018_01_28/frozen_inference_graph.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.6 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+```
 
 ## Comparing Model Performance
 
