@@ -30,7 +30,7 @@ from openvino.inference_engine import IENetwork, IECore, IEPlugin
 
 class Network:
     """
-    Load and configure inference plugins for the specified target devices 
+    Load and configure inference plugins for the specified target devices
     and performs synchronous and asynchronous modes for the specified infer requests.
     """
 
@@ -61,7 +61,7 @@ class Network:
             self.plugin = plugin
 
         if cpu_extension and 'CPU' in device:
-            self.plugin.add_cpu_extension(cpu_extension)        
+            self.plugin.add_cpu_extension(cpu_extension)
 
         log.info("Reading IR...")
         self.net = IENetwork(model=model_xml, weights=model_bin)
@@ -83,14 +83,14 @@ class Network:
                 log.error("Please try to specify cpu extensions library path"
                           " in command line parameters using -l "
                           "or --cpu_extension command line argument")
-                sys.exit(1)    
+                sys.exit(1)
         
         ### TODO: Return the loaded inference plugin ###
         if num_requests == 0:
             # Loads network read from IR to the plugin
             self.net_plugin = self.plugin.load(network=self.net)
         else:
-            self.net_plugin = self.plugin.load(network=self.net, num_requests=num_requests)        
+            self.net_plugin = self.plugin.load(network=self.net, num_requests=num_requests)
 
         self.input_blob = next(iter(self.net.inputs))
         self.out_blob = next(iter(self.net.outputs))
@@ -124,12 +124,14 @@ class Network:
         ### Note: You may need to update the function parameters. ###
         return wait_process
 
-    def get_output(self, request_id, output=None):
+    def get_output(self, request_id, output_type):
         ### TODO: Extract and return the output results
-        if output:
-            res = self.infer_request_handle.outputs[output]
-        else:
+        if output_type in ["yolo", "yolo_tiny"]:
+            res = self.net_plugin.requests[0].outputs
+        elif output_type == "ssd":
             res = self.net_plugin.requests[request_id].outputs[self.out_blob]
+        else:
+            res = self.infer_request_handle.outputs[output]
             
         ### Note: You may need to update the function parameters. ###
         return res

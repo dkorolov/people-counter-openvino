@@ -5,15 +5,23 @@ This is Write-Up for "People Counter App at the Edge using OpenVINO" project for
 ## Model Research
 
 
-In investigating potential people counter models, I tried and successfully convert for IR format each of the following three models:
+In investigating potential people counter models, I tried and successfully convert for IR format each of the following models:
 
+- YOLO v3
+- ssd mobilenet v2 coco
+- faster rcnn inception v2 coco
+- person-detection-retail-0013 (from OpenVINO zoo - only for compare)
+
+Different models like YOLO and SSD have different types of output. So I use additional parameter for ```main.py```  and functions for types of models to manage this .
 
 ### Model 1 - YOLO v3
 
-A deep CNN model for real-time object detection that detects 80 different classes. A little bigger than YOLOv2 but still very fast. As accurate as SSD but 3 times faster.
+A deep CNN model for real-time object detection that detects 80 different classes. A little bigger than YOLO2 but still very fast and accurate. 
 
 I get model from this YOLO v3 [repository](https://github.com/mystic123/tensorflow-yolo-v3). Conversion was based on Model Optimizer Developer Guide
 [instructions](https://docs.openvinotoolkit.org/2020.3/_docs_MO_DG_prepare_model_convert_model_tf_specific_Convert_YOLO_From_Tensorflow.html)
+
+I use same way like in Intel example ["Object Detection YOLO* V3 Python* Demo, Async API Performance Showcase"](https://github.com/opencv/open_model_zoo/tree/master/demos/python_demos/object_detection_demo_yolov3_async) to get correct bounding boxes output form YOLO. I get ```class YoloParams``` from it and put in ```yoloparams.py```
 
 #####Build instructions:
 
@@ -254,3 +262,4 @@ deployed edge model. To get better results, consider the following factors:
 So main recommendation is to test model on real user condition and real data. And re-train model if need.
 
 
+``

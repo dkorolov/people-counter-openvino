@@ -33,6 +33,8 @@ import paho.mqtt.client as mqtt
 from argparse import ArgumentParser
 from inference import Network
 
+from yoloparams import YoloParams, parse_yolo_region, intersection_over_union
+
 # MQTT server environment variables
 HOSTNAME = socket.gethostname()
 IPADDRESS = socket.gethostbyname(HOSTNAME)
@@ -65,6 +67,9 @@ def build_argparser():
     parser.add_argument("-pt", "--prob_threshold", type=float, default=0.5,
                         help="Probability threshold for detections filtering"
                         "(0.5 by default)")
+    parser.add_argument("-o", "--output_type", type=str, default="yolo",
+                        help="Output type - yolo, yolo_tiny or ssd"
+                        "(yolo by default)")
     return parser
 
 
@@ -88,8 +93,10 @@ def infer_on_stream(args, client):
     # Initialise the class
     infer_network = Network()
     # Set Probability threshold for detections
+    global prob_threshold, output_type
     prob_threshold = args.prob_threshold
-
+    output_type = args.output_type
+    assert (output_type in ["yolo", "yolo_tiny", "ssd"]), "Wrong output_type - {}".format(output_type)
     
     image_mode = False
     cur_request_id = 0
@@ -97,8 +104,8 @@ def infer_on_stream(args, client):
     total_count = 0
     start_time = 0
     ### DONE: Load the model through `infer_network` ###
-    n, c, h, w = infer_network.load_model(args.model, args.device, 1, 1,
-                                          cur_request_id, 
+    n, c, h, w = infer_network.load_model(args.model, args.device, 1, 3,
+                                          cur_request_id,
                                           args.cpu_extension)[1]
     
     ### DONE: Handle the input stream ###
@@ -123,7 +130,7 @@ def infer_on_stream(args, client):
 
     if not cap.isOpened():
         log.error("ERROR! Unable to open video source")
-    global initial_w, initial_h, prob_threshold
+    global initial_w, initial_h
     prob_threshold = args.prob_threshold
     initial_w = cap.get(3)
     initial_h = cap.get(4)
@@ -151,12 +158,18 @@ def infer_on_stream(args, client):
             det_time = time.time() - inf_start
             
             ### TODO: Get the results of the inference request ###
-            result = infer_network.get_output(cur_request_id)
+            result = infer_network.get_output(cur_request_id, output_type)
             #if args.perf_counts:
             perf_count = infer_network.performance_counter(cur_request_id)
             #performance_counts(perf_count)
-
-            frame, current_count = ssd_out(frame, result)
+            
+            if output_type == "yolo":
+                frame, current_count = yolo_out(result, infer_network.net, frame, image, False)
+            elif output_type == "yolo_tiny":
+                frame, current_count = yolo_out(result, infer_network.net, frame, image, True)
+            elif output_type == "ssd":
+                frame, current_count = ssd_out(frame, result)
+                
             inf_time_message = "Inference time: {:.3f}ms"\
                                .format(det_time * 1000)
             cv2.putText(frame, inf_time_message, (15, 15),
@@ -188,7 +201,7 @@ def infer_on_stream(args, client):
             
             
         ### DONE: Send the frame to the FFMPEG server ###
-        sys.stdout.buffer.write(frame)  
+        sys.stdout.buffer.write(frame)
         sys.stdout.flush()
         
         ### DONE: Write an output image if `image_mode` ###
@@ -198,7 +211,7 @@ def infer_on_stream(args, client):
     cap.release()
     cv2.destroyAllWindows()
     client.disconnect()
-    infer_network.cleanup()            
+    infer_network.cleanup()
 
     
 def ssd_out(frame, result):
@@ -218,9 +231,58 @@ def ssd_out(frame, result):
             xmax = int(obj[5] * initial_w)
             ymax = int(obj[6] * initial_h)
             cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 55, 255), 1)
+            cv2.putText(frame,"person", (xmin,ymin+20), 0, 0.6, (255,0,0),1)
             current_count = current_count + 1
     return frame, current_count
 
+
+
+def yolo_out(result, network, frame, in_frame, is_tiny):
+    objects = list()
+    for layer_name, out_blob in result.items():
+        out_blob = out_blob.reshape(network.layers[network.layers[layer_name].parents[0]].shape)
+        layer_params = YoloParams(network.layers[layer_name].params, out_blob.shape[2], is_tiny)
+        objects += parse_yolo_region(out_blob, in_frame.shape[2:],
+                                        frame.shape[:-1], layer_params, prob_threshold)
+    
+
+    # Set default for Intersection over union threshold for overlapping (iou_threshold)
+    # It possible to to put this in paraneters if need
+    iou_threshold = 0.4
+    
+    # Filtering overlapping boxes with respect to the iou_threshold parameter
+    objects = sorted(objects, key=lambda obj : obj['confidence'], reverse=True)
+    for i in range(len(objects)):
+        if objects[i]['confidence'] == 0:
+            continue
+        for j in range(i + 1, len(objects)):
+            if intersection_over_union(objects[i], objects[j]) > iou_threshold:
+                objects[j]['confidence'] = 0
+
+    # Filter objects with respect to the --prob_threshold CLI parameter
+    # AND filter objects if their size out of original frame size
+    origin_im_size = frame.shape[:-1]
+    bboxes = [obj for obj in objects if obj['confidence'] >= prob_threshold and
+                    (obj['xmax'] <= origin_im_size[1] or
+                     obj['ymax'] <= origin_im_size[0] or
+                     obj['xmin'] >= 0 or
+                     obj['ymin'] >= 0)]
+
+    #Draw bounding boxes and inference time onto the frame.
+    current_count = 0
+    for box in bboxes: # Output shape is 1x1x100x7
+        conf = box['confidence']
+        # class 0 means person
+        if  conf >= prob_threshold and box['class_id'] == 0:
+            xmin = box['xmin']
+            ymin =  box['ymin']
+            xmax = box['xmax']
+            ymax = box['ymax']
+            cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (255,0,0), 1)
+            cv2.putText(frame,"person", (xmin,ymin+20), 0, 0.6, (255,0,0),1)
+            current_count += 1
+      
+    return frame ,current_count
 
     
 def main():
