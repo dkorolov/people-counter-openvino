@@ -8,11 +8,12 @@ This is Write-Up for "People Counter App at the Edge using OpenVINO" project for
 In investigating potential people counter models, I tried and successfully convert for IR format each of the following models:
 
 - YOLO v3
+- YOLO v3 tiny
 - ssd mobilenet v2 coco
 - faster rcnn inception v2 coco
 - person-detection-retail-0013 (from OpenVINO zoo - only for compare)
 
-Different models like YOLO and SSD have different types of output. So I use additional parameter for ```main.py```  and functions for types of models to manage this .
+Different models like YOLO and SSD have different types of output. So I use additional parameter for ```main.py```  and functions for types of models to manage this . **NOTE** .xml and .bin for yolo_v3 are rather big and not included in GitHub repository (should be genrated locally according instructions)
 
 ### Model 1 - YOLO v3
 
@@ -36,18 +37,20 @@ git checkout ed60b90
 # Download COCO class names file
 wget https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names
 	
-#Download binary file with weights (exist 3 option, I use only first)
+#Download binary file with weights (exist 3 option, I use yolov3 and yolov3-tiny)
 wget https://pjreddie.com/media/files/yolov3.weights
 wget https://pjreddie.com/media/files/yolov3-tiny.weights
 wget https://pjreddie.com/media/files/yolov3-spp.weights
 	
-	
-# I will use only yolov3 in next steps
-# Convert .weights file to a .pb file
+# Converts yolov3 .weights file to a .pb file
 python convert_weights_pb.py --class_names coco.names --data_format NHWC --weights_file yolov3.weights
 	
 # Convert model to IR format using Model Optimizer
+# FP32 model
 python /opt/intel/openvino/deployment_tools/model_optimizer/mo_tf.py --input_model frozen_darknet_yolov3_model.pb --tensorflow_use_custom_operations_config /opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf/yolo_v3.json --batch 1
+# FP16 model
+python /opt/intel/openvino/deployment_tools/model_optimizer/mo_tf.py --input_model frozen_darknet_yolov3_model.pb --data_type FP16 --tensorflow_use_custom_operations_config /opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf/yolo_v3.json --batch 1 
+
 	
 ```
 During .weights to a .pb conversion I get an several errors like:
@@ -64,24 +67,47 @@ pip install tensorflow==1.12
 pip install numpy --upgrade
 pip install Pillow
 ```
+		
+Was generated .xml and .bin files for FP16 for testing
 	
+##### Run main code (FP16): 
+**NOTE** .xml and .bin not included in GitHub repository (should be genrated locally first)
+
+```
+python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/tensorflow-yolo-v3/frozen_darknet_yolov3_model.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.6 -lt 2 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+```
+
+### Model 2 - YOLO v3 tiny
+
+YOLO v3 tiny model use same repoditiry and code like YOLO v3 (see above), but with some differencies: 
+
+#####Converting instructions:
+
+  
+```
+# Converts yolov3_tiny .weights file to a .pb file
+python convert_weights_pb.py --class_names coco.names --data_format NHWC --weights_file yolov3-tiny.weights --output_graph frozen_darknet_yolov3_tiny_model.pb --tiny True
 	
-Was generated .xml and .bin files:
+# Convert model to IR format using Model Optimizer
+# FP32
+python /opt/intel/openvino/deployment_tools/model_optimizer/mo_tf.py --input_model frozen_darknet_yolov3_tiny_model.pb --tensorflow_use_custom_operations_config /opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf/yolo_v3_tiny.json --batch 1
+# FP16
+python /opt/intel/openvino/deployment_tools/model_optimizer/mo_tf.py --input_model frozen_darknet_yolov3_tiny_model.pb --data_type FP16 --tensorflow_use_custom_operations_config /opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf/yolo_v3_tiny.json --batch 1
 	
+```	
+	
+Was generated .xml and .bin files for FP16 for testing
+
+
+##### Run main code (FP16):
+
 ```
-frozen_darknet_yolov3_model.xml
-frozen_darknet_yolov3_model.bin
+python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/tensorflow-yolo-v3/frozen_darknet_yolov3_tiny_FP16_model.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.2 --output_type yolo_tiny | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
 ```
 
 
-##### Run main code:
 
-```
-python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/tensorflow-yolo-v3/frozen_darknet_yolov3_model.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.6 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
-```
-
-
-### Model 2 - ssd mobilenet v2 coco
+### Model 3 - ssd mobilenet v2 coco
 
 Single Stage Detector: real-time CNN for object detection that detects 80 different classes.
 
@@ -93,27 +119,25 @@ I get original model from Tensorflow [detection model zoo](https://github.com/te
 # Download model from Tensorflow detection model zoo and extract it
 wget http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v2_coco_2018_03_29.tar.gz
 tar -xvf ssd_mobilenet_v2_coco_2018_03_29.tar.gz
+cd ssd_mobilenet_v2_coco_2018_03_29
 
 # Convert model to IR format using Model Optimizer
-cd ssd_mobilenet_v2_coco_2018_03_29
+# FP32 model
 python /opt/intel/openvino/deployment_tools/model_optimizer/mo.py --input_model frozen_inference_graph.pb --tensorflow_object_detection_api_pipeline_config pipeline.config --reverse_input_channels --tensorflow_use_custom_operations_config /opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf/ssd_v2_support.json
+# FP16 model
+python /opt/intel/openvino/deployment_tools/model_optimizer/mo.py --input_model frozen_inference_graph.pb --data_type FP16 --tensorflow_object_detection_api_pipeline_config pipeline.config --reverse_input_channels --tensorflow_use_custom_operations_config /opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf/ssd_v2_support.json
 
 ```
-Was generated .xml and .bin files:
-
-```
-frozen_inference_graph.xml
-frozen_inference_graph.bin
-```
+Was generated .xml and .bin files for FP16 for testing
 
 ##### Run main code:
 
 ```
-python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/ssd_mobilenet_v2_coco_2018_03_29/frozen_inference_graph.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.6 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/ssd_mobilenet_v2_coco_2018_03_29/frozen_inference_graph_FP32.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.2 --output_type ssd | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
 ```
 
 
-### Model 3 - faster rcnn inception v2 coco
+### Model 4 - faster rcnn inception v2 coco
 
 This is a real-time neural network for object instance segmentation that detects 80 different classes. Extends Faster R-CNN as each of the 300 elected ROIs go through 3 parallel branches of the network: label prediction, bounding box prediction and mask prediction.
 
@@ -125,25 +149,29 @@ I get original model from Tensorflow [detection model zoo](https://github.com/te
 # Download model from Tensorflow detection model zoo and extract it
 wget http://download.tensorflow.org/models/object_detection/faster_rcnn_inception_v2_coco_2018_01_28.tar.gz
 tar -xvf faster_rcnn_inception_v2_coco_2018_01_28.tar.gz
+cd faster_rcnn_inception_v2_coco_2018_01_28
 
 # Convert model to IR format using Model Optimizer
-cd faster_rcnn_inception_v2_coco_2018_01_28
+# FP32 model
+python /opt/intel/openvino/deployment_tools/model_optimizer/mo.py --input_model frozen_inference_graph.pb --tensorflow_object_detection_api_pipeline_config pipeline.config --reverse_input_channels --tensorflow_use_custom_operations_config /opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf/faster_rcnn_support.json
+# FP16 model
+python /opt/intel/openvino/deployment_tools/model_optimizer/mo.py --input_model frozen_inference_graph.pb --data_type FP16 --tensorflow_object_detection_api_pipeline_config pipeline.config --reverse_input_channels --tensorflow_use_custom_operations_config /opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf/faster_rcnn_support.json
+
+
 python /opt/intel/openvino/deployment_tools/model_optimizer/mo.py --input_model frozen_inference_graph.pb --tensorflow_object_detection_api_pipeline_config pipeline.config --reverse_input_channels --tensorflow_use_custom_operations_config /opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf/faster_rcnn_support.json
 
 ```
-Was generated .xml and .bin files:
+Was generated .xml and .bin files for FP16 for testing
 
-```
-frozen_inference_graph.xml
-frozen_inference_graph.bin
 ```
 ##### Run main code:
 
 ```
-python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/faster_rcnn_inception_v2_coco_2018_01_28/frozen_inference_graph.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.6 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/faster_rcnn_inception_v2_coco_2018_01_28/frozen_inference_graph.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.6 -lt 2 --output_type ssd | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
 ```
+I get an error here: Output file is empty, nothing was encoded (check -ss / -t / -frames parameters if used)
 
-### Model 4 - person-detection-retail-0013 (additional model from OpenVINO zoo)
+### Model 5 - person-detection-retail-0013 (additional model from OpenVINO zoo)
 
 This is additional pre-trained model from OpenVINO zoo, only for comparation
 
@@ -156,7 +184,7 @@ This is additional pre-trained model from OpenVINO zoo, only for comparation
 ##### Run main code:
 
 ```
-python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/faster_rcnn_inception_v2_coco_2018_01_28/frozen_inference_graph.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.6 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/faster_rcnn_inception_v2_coco_2018_01_28/frozen_inference_graph.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.6 -lt 2 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
 ```
 
 ## Comparing Model Performance
@@ -176,6 +204,18 @@ Using `print()` during each frame execution can gives some strange results, so b
  
  	DL Workbench supports several frameworks whether uploaded from a local folder or imported from the Open Model Zoo. Supported frameworks are: OpenVINO, Caffe, MXNet, ONNX, TensorFlow. For PyTorch DL Workbench supports only pre-trained models from Intel Open Model Zoo. DL Workbench documentation available [here](https://docs.openvinotoolkit.org/2019_R3.1/_docs_Workbench_DG_Introduction.html)
 
+
+### Original inference using TensorFlow (for compare)
+
+To use Direct comparison method I need to run original inference using TensorFlow. For thia purpose I create file ```yolov3_original``` in yolo v3 filder ```/models/tensorflow-yolo-v3/```. It based on original GitHub example [demo.py](https://github.com/mystic123/tensorflow-yolo-v3/blob/master/demo.py) in same foler. I am change a little code and add output to ffmpeg server similar to OpenVINO exanles.
+
+To start original inference using TensorFlow use:
+
+```
+cd /models/tensorflow-yolo-v3
+python3 yolov3_original.py --frozen_model frozen_darknet_yolov3_tiny_model.pb --input_video ../../resources/Pedestrian_Detect_2_1_1.mp4 --tiny True | ffmpeg -v warning -f rawvideo -pixel_format rbg24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+```
+![](images/out_tensorflow_yolov3_tiny.jpeg)
 
 ### Difference between model accuracy pre- and post-conversion
 
@@ -197,31 +237,50 @@ Using `print()` during each frame execution can gives some strange results, so b
 where used next notation - **True Positives (TP)**, **False Negatives (FN)**, and **False Positives (FP)**. To determine how many objects were detected correctly and how many false positives were generated, we use the **Intersection over Union (IoU)** metric. The IoU score ranges from 0 to 1, the closer the two boxes, the higher the IoU score. Formally, the IoU measures the overlap between the ground truth box and the predicted box over their union.
 
 
+
+
+
+
 ### Size of the model pre- and post-conversion
 
 ***Size Comparation method:*** I compare file size of OpenVINO IR .bin vs TensorFlow .bp model frozen graph.
 
 Results:
 
-| Model                         | TensorFlow .bp file | OpenVINO IR .bin file |
-| ----------------------------- |:-------------------:| ---------------------:|
-| tensorflow-yolo-v3            | 237Mb               | 236Mb                 |
-| ssd-mobilenet-v2-coco         | 66.5Mb              | 64.2Mb                |
-| faster-rcnn-inception-v2-coco | 54.5MB              | 50.8Mb                |
+| Model                  | TensorFlow .bp file | OpenVINO FP32 .bin file | OpenVINO FP16 .bin file |
+| ----------------------------- |:-------------------:|------------------------:|-----------------:|
+| tensorflow-yolo-v3            | 237Mb               | 236Mb                   | 118Mb            |
+| tensorflow-yolo-v3 (tiny)     | 33.8Mb              | 33.8Mb                  | 16.9Mb           |
+| ssd-mobilenet-v2-coco         | 66.5Mb              | 64.2Mb                  | 32.1Mb           |
+| faster-rcnn-inception-v2-coco | 54.5MB              | 50.8Mb                  | 25.4Mb           |
 
-OpenVINO IR models file sizes a bit smaller, but not too much 
+TensorFlow and OpenVINO FP32 IR models file sizes close to same, but FP16 OpenVINO IR models twice smaller.
 
 ### Inference time of the model pre- and post-conversion
 
-***Inference time Comparation method:*** I compare time taken to run inference for one image using converted OpenVINO IR model vs using original TensorFlow model.
+***Inference time Comparation method:*** I compare time taken to run inference for one frame (or image) using converted OpenVINO IR model vs using original TensorFlow model. 
 
 Results:
 
-| Model                         | TensorFlow  | OpenVINO  |
-| ----------------------------- |:-------------------:| ---------------------:|
-| tensorflow-yolo-v3            |                |                  |
-| ssd-mobilenet-v2-coco         |               |                 |
-| faster-rcnn-inception-v2-coco |               |                 |
+| Model                         | TensorFlow          | OpenVINO FP16    |
+| ----------------------------- |:-------------------:| ----------------:|
+| tensorflow-yolo-v3 (tiny)     |      260.2 ms       |     95.6 ms      |
+
+
+Note: original TensorFlow example run in FP32
+
+Command to start TensorFlow example:
+
+```
+python3 yolov3_original.py --frozen_model frozen_darknet_yolov3_tiny_model.pb --input_video ../../resources/Pedestrian_Detect_2_1_1.mp4 --tiny True | ffmpeg -v warning -f rawvideo -pixel_format rbg24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+```
+
+Command to start OpenVINO example:
+
+```
+python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/tensorflow-yolo-v3/frozen_darknet_yolov3_tiny_FP16_model.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.2 --output_type yolo_tiny | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+```
+
 
 ## Explaining Custom Layers
 
@@ -262,4 +321,3 @@ deployed edge model. To get better results, consider the following factors:
 So main recommendation is to test model on real user condition and real data. And re-train model if need.
 
 
-``
