@@ -207,11 +207,12 @@ Using `print()` during each frame execution can gives some strange results, so b
 
 ### Original inference using TensorFlow (for compare)
 
-To use Direct comparison method I need to run original inference using TensorFlow. For thia purpose I create file ```yolov3_original``` in yolo v3 filder ```/models/tensorflow-yolo-v3/```. It based on original GitHub example [demo.py](https://github.com/mystic123/tensorflow-yolo-v3/blob/master/demo.py) in same foler. I am change a little code and add output to ffmpeg server similar to OpenVINO exanles.
+To use Direct comparison method I need to run original inference using TensorFlow. For thia purpose I create file ```yolov3_original```. It need to be copied into yolo v3 filder ```/models/tensorflow-yolo-v3/``` to avoid path problems. It based on original GitHub example [demo.py](https://github.com/mystic123/tensorflow-yolo-v3/blob/master/demo.py) in same foler. I am change a little code and add output to ffmpeg server similar to OpenVINO exanles.
 
 To start original inference using TensorFlow use:
 
 ```
+cp yolov3_original.py /models/tensorflow-yolo-v3
 cd /models/tensorflow-yolo-v3
 python3 yolov3_original.py --frozen_model frozen_darknet_yolov3_tiny_model.pb --input_video ../../resources/Pedestrian_Detect_2_1_1.mp4 --tiny True | ffmpeg -v warning -f rawvideo -pixel_format rbg24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
 ```
