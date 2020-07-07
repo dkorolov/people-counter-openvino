@@ -125,7 +125,7 @@ Single Stage Detector: real-time CNN for object detection that detects 80 differ
 
 I get original model from Tensorflow [detection model zoo](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md)
 
-#####Build instructions:
+##### Build instructions:
 
 ```
 # Download model from Tensorflow detection model zoo and extract it
@@ -138,7 +138,6 @@ cd ssd_mobilenet_v2_coco_2018_03_29
 python /opt/intel/openvino/deployment_tools/model_optimizer/mo.py --input_model frozen_inference_graph.pb --tensorflow_object_detection_api_pipeline_config pipeline.config --reverse_input_channels --tensorflow_use_custom_operations_config /opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf/ssd_v2_support.json
 # FP16 model
 python /opt/intel/openvino/deployment_tools/model_optimizer/mo.py --input_model frozen_inference_graph.pb --data_type FP16 --tensorflow_object_detection_api_pipeline_config pipeline.config --reverse_input_channels --tensorflow_use_custom_operations_config /opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf/ssd_v2_support.json
-
 ```
 Was generated .xml and .bin files for FP16 for testing
 
@@ -175,7 +174,6 @@ python /opt/intel/openvino/deployment_tools/model_optimizer/mo.py --input_model 
 ```
 Was generated .xml and .bin files for FP16 for testing
 
-```
 ##### Run main code:
 
 ```
