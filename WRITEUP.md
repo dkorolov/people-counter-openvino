@@ -15,6 +15,18 @@ In investigating potential people counter models, I tried and successfully conve
 
 Different models like YOLO and SSD have different types of output. So I use additional parameter for ```main.py```  and functions for types of models to manage this . **NOTE** .xml and .bin for yolo_v3 are rather big and not included in GitHub repository (should be genrated locally according instructions)
 
+Most of tesing I made with YOLO v3 tiny and ssd mobilenet v2 coco models
+
+```
+# ssd mobilenet v2 coco
+python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/ssd_mobilenet_v2_coco_2018_03_29/frozen_inference_graph_FP16.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.2 --output_type ssd | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+
+# YOLO v3 tiny
+python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /home/workspace/models/tensorflow-yolo-v3/frozen_darknet_yolov3_tiny_FP16_model.xml -l /opt/intel/openvino/deployment_tools/inference_engine/lib/intel64/libcpu_extension_sse4.so -d CPU -pt 0.2 --output_type yolo_tiny | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
+```
+
+![](images/ssd-mobilenet-v2-coco.png)
+
 ### Model 1 - YOLO v3
 
 A deep CNN model for real-time object detection that detects 80 different classes. A little bigger than YOLO2 but still very fast and accurate. 
@@ -237,7 +249,7 @@ python3 yolov3_original.py --frozen_model frozen_darknet_yolov3_tiny_model.pb --
 
 where used next notation - **True Positives (TP)**, **False Negatives (FN)**, and **False Positives (FP)**. To determine how many objects were detected correctly and how many false positives were generated, we use the **Intersection over Union (IoU)** metric. The IoU score ranges from 0 to 1, the closer the two boxes, the higher the IoU score. Formally, the IoU measures the overlap between the ground truth box and the predicted box over their union.
 
-
+I compare models accuracy only visually this time - in my case tensorflow-yolo-v3 (tiny) was better accuracy than ssd-mobilenet-v2-coco. Also Intel pre-trained detection-retail-0013 looks fine
 
 
 

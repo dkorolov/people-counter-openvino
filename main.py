@@ -272,7 +272,7 @@ def ssd_out(frame, result):
             ymin = int(obj[4] * initial_h)
             xmax = int(obj[5] * initial_w)
             ymax = int(obj[6] * initial_h)
-            cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 55, 255), 1)
+            cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (255,0,0), 1)
             current_count = current_count + 1
     return frame, current_count
 
