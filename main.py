@@ -74,11 +74,46 @@ def build_argparser():
 
 
 def connect_mqtt():
-    ### DONE: Connect to the MQTT client ###
+    ### Connect to the MQTT client ###
     client = mqtt.Client()
     client.connect(MQTT_HOST, MQTT_PORT, MQTT_KEEPALIVE_INTERVAL)
-
     return client
+
+def statistic(total_count, current_count, prev_count, prev_in_duration, duration, mqtt):
+    '''
+    Calculate statistics and publish it to MQTT
+    '''
+    # Number of seconds threshold that we count that person won't leave view
+    # Use constant here, but possible to add argument if need
+    leave_threshold = 2
+    
+    in_duration = prev_in_duration
+    if ((duration - prev_in_duration) < leave_threshold):
+        if(current_count > prev_count):
+            return total_count, prev_count, prev_in_duration
+    
+        elif((current_count < prev_count)):
+            # update current_count if see less people
+            mqtt.publish("person", json.dumps({"count": current_count}))
+            return total_count, current_count, duration
+
+    # Check for new people in view
+    if(current_count > prev_count):
+        in_duration = duration
+        # increase total counter
+        total_count = total_count + current_count - prev_count
+        mqtt.publish("person", json.dumps({"total": total_count}))
+
+
+    # Check if people left the view
+    elif(current_count < prev_count):
+        leave_duration = duration
+        # how many time people was in view
+        duration_in_view = leave_duration - prev_in_duration
+        mqtt.publish("person/duration", json.dumps({"duration": duration_in_view}))
+
+    mqtt.publish("person", json.dumps({"count": current_count}))
+    return total_count, current_count, in_duration
 
 
 def infer_on_stream(args, client):
@@ -102,13 +137,19 @@ def infer_on_stream(args, client):
     cur_request_id = 0
     last_count = 0
     total_count = 0
+    prev_count = 0
+    prev_in_duration = 0
+    frame_count = 0
     start_time = 0
-    ### DONE: Load the model through `infer_network` ###
+    cur_frame = 0
+    total_inf_time = 0
+    
+    ### Load the model through `infer_network` ###
     n, c, h, w = infer_network.load_model(args.model, args.device, 1, 3,
                                           cur_request_id,
                                           args.cpu_extension)[1]
     
-    ### DONE: Handle the input stream ###
+    ### Handle the input stream ###
     # live stream input
     if args.input == 'CAM':
         input_stream = 0
@@ -124,6 +165,7 @@ def infer_on_stream(args, client):
         assert os.path.isfile(args.input), "Specified input file doesn't exist {}".format(args.input)
 
     cap = cv2.VideoCapture(input_stream)
+    FPS = cap.get(cv2.CAP_PROP_FPS)
 
     if input_stream:
         cap.open(args.input)
@@ -134,34 +176,38 @@ def infer_on_stream(args, client):
     prob_threshold = args.prob_threshold
     initial_w = cap.get(3)
     initial_h = cap.get(4)
-
-    ### DONE: Loop until stream is over ###
+    
+    duration = 0
+    person_frames = 0
+    
+    ### Loop until stream is over ###
     while cap.isOpened():
         
-        ### DONE: Read from the video capture ###
+        ### Read from the video capture ###
         flag, frame = cap.read()
         if not flag:
             break
         key_pressed = cv2.waitKey(60)
         
-        ### DONE: Pre-process the image as needed ###
+        ### Pre-process the image as needed ###
         image = cv2.resize(frame, (w, h))
         image = image.transpose((2, 0, 1))
         image = image.reshape((n, c, h, w))
         
-        ### TODO: Start asynchronous inference for specified request ###
+        ### Start asynchronous inference for specified request ###
         inf_start = time.time()
         infer_network.exec_net(cur_request_id, image)
         
-        ### TODO: Wait for the result ###
+        ### Wait for the result ###
         if infer_network.wait(cur_request_id) == 0:
-            det_time = time.time() - inf_start
+            inf_time = time.time() - inf_start
             
-            ### TODO: Get the results of the inference request ###
+            frame_count += 1
+            cur_frame += 1
+            total_inf_time += inf_time
+            
+            ### Get the results of the inference request ###
             result = infer_network.get_output(cur_request_id, output_type)
-            #if args.perf_counts:
-            perf_count = infer_network.performance_counter(cur_request_id)
-            #performance_counts(perf_count)
             
             if output_type == "yolo":
                 frame, current_count = yolo_out(result, infer_network.net, frame, image, False)
@@ -170,49 +216,45 @@ def infer_on_stream(args, client):
             elif output_type == "ssd":
                 frame, current_count = ssd_out(frame, result)
                 
-            inf_time_message = "Inference time: {:.3f}ms"\
-                               .format(det_time * 1000)
-            cv2.putText(frame, inf_time_message, (15, 15),
-                        cv2.FONT_HERSHEY_COMPLEX, 0.5, (200, 10, 10), 1)
             
-            ### TODO: Extract any desired stats from the results ###
-            # When new person enters the video
-            if current_count > last_count:
-                start_time = time.time()
-                total_count = total_count + current_count - last_count
-                client.publish("person", json.dumps({"total": total_count}))
-            
-
-            ### TODO: Calculate and send relevant information on ###
+            ### Extract any desired stats from the results ###
+            ### Calculate and send relevant information on ###
             ### current_count, total_count and duration to the MQTT server ###
             ### Topic "person": keys of "count" and "total" ###
             ### Topic "person/duration": key of "duration" ###
-            if current_count < last_count:
-                duration = int(time.time() - start_time)
-                # Publish messages to the MQTT server
-                client.publish("person/duration",
-                               json.dumps({"duration": duration}))
+             
+            total_count, prev_count, prev_in_duration = statistic(total_count, current_count, prev_count, prev_in_duration, frame_count/FPS, client)
 
-            client.publish("person", json.dumps({"count": current_count}))
+            # Print information on screen
+            inf_time_string = "Inference time: {:.3f}ms"\
+                               .format(inf_time * 1000)
+            cv2.putText(frame, inf_time_string, (75, 15),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 10, 10), 1)
+            cv2.putText(frame, "Total Count : %d" %total_count, (75, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 10, 10), 1)
+
+            
             last_count = current_count
-
+            
             if key_pressed == 27:
                 break
             
             
-        ### DONE: Send the frame to the FFMPEG server ###
+        ### Send the frame to the FFMPEG server ###
         sys.stdout.buffer.write(frame)
         sys.stdout.flush()
         
-        ### DONE: Write an output image if `image_mode` ###
+        ### Write an output image if `image_mode` ###
         if image_mode:
             cv2.imwrite('output_image.jpg', frame)
-            
+                
     cap.release()
     cv2.destroyAllWindows()
     client.disconnect()
     infer_network.cleanup()
 
+    # Print average inf_time for statistics
+    #average_inf_time = total_inf_time/cur_frame
+    #print ("average inf time for frame : {}".format(average_inf_time))
     
 def ssd_out(frame, result):
     """
@@ -231,7 +273,6 @@ def ssd_out(frame, result):
             xmax = int(obj[5] * initial_w)
             ymax = int(obj[6] * initial_h)
             cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 55, 255), 1)
-            cv2.putText(frame,"person", (xmin,ymin+20), 0, 0.6, (255,0,0),1)
             current_count = current_count + 1
     return frame, current_count
 
@@ -279,7 +320,6 @@ def yolo_out(result, network, frame, in_frame, is_tiny):
             xmax = box['xmax']
             ymax = box['ymax']
             cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (255,0,0), 1)
-            cv2.putText(frame,"person", (xmin,ymin+20), 0, 0.6, (255,0,0),1)
             current_count += 1
       
     return frame ,current_count

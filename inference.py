@@ -35,7 +35,7 @@ class Network:
     """
 
     def __init__(self):
-        ### DONE: Initialize any class variables desired ###
+        ### Initialize any class variables desired ###
         self.net = None
         self.plugin = None
         self.input_blob = None
@@ -49,7 +49,7 @@ class Network:
         del self.net
 
     def load_model(self, model, device, input_size, output_size, num_requests, cpu_extension=None, plugin=None):
-        ### TODO: Load the model ###
+        ### Load the model ###
         model_xml = model
         model_bin = os.path.splitext(model_xml)[0] + ".bin"
         # Plugin initialization for specified device
@@ -67,12 +67,12 @@ class Network:
         self.net = IENetwork(model=model_xml, weights=model_bin)
         log.info("Loading IR to the plugin...")
         
-        ### TODO: Check for supported layers ###
+        ### Check for supported layers ###
         if self.plugin.device == "CPU":
             supported_layers = self.plugin.get_supported_layers(self.net)
     
         
-            ### TODO: Add any necessary extensions ###
+            ### Add any necessary extensions ###
             not_supported_layers = \
                 [l for l in self.net.layers.keys() if l not in supported_layers]
             if len(not_supported_layers) != 0:
@@ -85,7 +85,7 @@ class Network:
                           "or --cpu_extension command line argument")
                 sys.exit(1)
         
-        ### TODO: Return the loaded inference plugin ###
+        ### Return the loaded inference plugin ###
         if num_requests == 0:
             # Loads network read from IR to the plugin
             self.net_plugin = self.plugin.load(network=self.net)
@@ -94,38 +94,33 @@ class Network:
 
         self.input_blob = next(iter(self.net.inputs))
         self.out_blob = next(iter(self.net.outputs))
-        assert len(self.net.inputs.keys()) == input_size, \
-            "Supports only {} input topologies".format(len(self.net.inputs))
-        assert len(self.net.outputs) == output_size, \
-            "Supports only {} output topologies".format(len(self.net.outputs))
-            
-            
+               
         ### Note: You may need to update the function parameters. ###
         return self.plugin, self.get_input_shape()
 
     def get_input_shape(self):
-        ### TODO: Return the shape of the input layer ###
+        ### Return the shape of the input layer ###
         return self.net.inputs[self.input_blob].shape
 
     def exec_net(self, request_id, frame):
-        ### TODO: Start an asynchronous request ###
+        ### Start an asynchronous request ###
         self.infer_request_handle = self.net_plugin.start_async(
             request_id=request_id, inputs={self.input_blob: frame})
         
-        ### TODO: Return any necessary information ###
+        ### Return any necessary information ###
         ### Note: You may need to update the function parameters. ###
         return self.net_plugin
 
     def wait(self, request_id):
-        ### TODO: Wait for the request to be complete. ###
+        ### Wait for the request to be complete. ###
         wait_process = self.net_plugin.requests[request_id].wait(-1)
         
-        ### TODO: Return any necessary information ###
+        ### Return any necessary information ###
         ### Note: You may need to update the function parameters. ###
         return wait_process
 
     def get_output(self, request_id, output_type):
-        ### TODO: Extract and return the output results
+        ### Extract and return the output results
         if output_type in ["yolo", "yolo_tiny"]:
             res = self.net_plugin.requests[0].outputs
         elif output_type == "ssd":
@@ -136,7 +131,3 @@ class Network:
         ### Note: You may need to update the function parameters. ###
         return res
 
-    def performance_counter(self, request_id):
-        #Queries performance
-        perf_count = self.net_plugin.requests[request_id].get_perf_counts()
-        return perf_count

@@ -265,7 +265,7 @@ Results:
 
 | Model                         | TensorFlow          | OpenVINO FP16    |
 | ----------------------------- |:-------------------:| ----------------:|
-| tensorflow-yolo-v3 (tiny)     |      260.2 ms       |     95.6 ms      |
+| tensorflow-yolo-v3 (tiny)     |      260.2 ms       |     90.6 ms      |
 
 
 Note: original TensorFlow example run in FP32
