@@ -36,7 +36,7 @@ I get model from this YOLO v3 [repository](https://github.com/mystic123/tensorfl
 
 I use same way like in Intel example ["Object Detection YOLO* V3 Python* Demo, Async API Performance Showcase"](https://github.com/opencv/open_model_zoo/tree/master/demos/python_demos/object_detection_demo_yolov3_async) to get correct bounding boxes output form YOLO. I get ```class YoloParams``` from it and put in ```yoloparams.py```
 
-#####Build instructions:
+##### Build instructions:
 
   
 ```
@@ -93,7 +93,7 @@ python3 main.py -i /home/workspace/resources/Pedestrian_Detect_2_1_1.mp4 -m /hom
 
 YOLO v3 tiny model use same repoditiry and code like YOLO v3 (see above), but with some differencies: 
 
-#####Converting instructions:
+##### Converting instructions:
 
   
 ```
@@ -125,7 +125,7 @@ Single Stage Detector: real-time CNN for object detection that detects 80 differ
 
 I get original model from Tensorflow [detection model zoo](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md)
 
-#####Build instructions:
+##### Build instructions:
 
 ```
 # Download model from Tensorflow detection model zoo and extract it
@@ -138,7 +138,6 @@ cd ssd_mobilenet_v2_coco_2018_03_29
 python /opt/intel/openvino/deployment_tools/model_optimizer/mo.py --input_model frozen_inference_graph.pb --tensorflow_object_detection_api_pipeline_config pipeline.config --reverse_input_channels --tensorflow_use_custom_operations_config /opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf/ssd_v2_support.json
 # FP16 model
 python /opt/intel/openvino/deployment_tools/model_optimizer/mo.py --input_model frozen_inference_graph.pb --data_type FP16 --tensorflow_object_detection_api_pipeline_config pipeline.config --reverse_input_channels --tensorflow_use_custom_operations_config /opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf/ssd_v2_support.json
-
 ```
 Was generated .xml and .bin files for FP16 for testing
 
@@ -155,7 +154,7 @@ This is a real-time neural network for object instance segmentation that detects
 
 I get original model from Tensorflow [detection model zoo](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md)
 
-#####Build instructions:
+##### Build instructions:
 
 ```
 # Download model from Tensorflow detection model zoo and extract it
@@ -175,7 +174,6 @@ python /opt/intel/openvino/deployment_tools/model_optimizer/mo.py --input_model 
 ```
 Was generated .xml and .bin files for FP16 for testing
 
-```
 ##### Run main code:
 
 ```
